@@ -1,0 +1,13 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./tools:/app/tools
+      - ./app:/app/app
+      - ./system-prompt.md:/app/system-prompt.md
+    env_file:
+      - .env
+    environment:
+      - TOOLS_DIR=/app/tools

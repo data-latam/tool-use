@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trajectory Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #09090b; --surface: #131316; --surface2: #1a1a1f; --surface3: #222228;
+  --border: #27272a; --border2: #3f3f46;
+  --text: #fafafa; --text2: #a1a1aa; --text3: #71717a;
+  --accent: #8b5cf6; --accent-dim: rgba(139,92,246,0.12);
+  --green: #22c55e; --green-dim: rgba(34,197,94,0.12);
+  --red: #ef4444; --red-dim: rgba(239,68,68,0.12);
+  --orange: #f59e0b; --orange-dim: rgba(245,158,11,0.12);
+  --blue: #3b82f6; --blue-dim: rgba(59,130,246,0.12);
+  --radius: 8px; --radius-lg: 12px;
+  --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  --sans: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; font-size: 14px; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::selection { background: var(--accent); color: white; }
+
+/* ── Sidebar ── */
+.sidebar { width: 260px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+.sidebar-header { padding: 20px; border-bottom: 1px solid var(--border); }
+.sidebar-header .logo h1 { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
+.sidebar-header .stats { font-size: 11px; color: var(--text3); margin-top: 8px; display: flex; gap: 12px; }
+.sidebar-header .stat { display: flex; align-items: center; gap: 4px; }
+.sidebar-header .stat .dot { width: 6px; height: 6px; border-radius: 50%; }
+.sidebar-header .stat .dot.live { background: var(--green); box-shadow: 0 0 8px rgba(34,197,94,0.4); }
+.search-box { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.search-box input { width: 100%; padding: 7px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 12px; font-family: var(--sans); outline: none; transition: border 0.2s; }
+.search-box input:focus { border-color: var(--accent); }
+.search-box input::placeholder { color: var(--text3); }
+.tool-list { overflow-y: auto; flex: 1; padding: 6px 0; }
+.server-group { margin-bottom: 2px; }
+.server-toggle { padding: 5px 14px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+.server-toggle:hover { color: var(--text2); }
+.server-toggle .cnt { font-size: 10px; background: var(--surface3); padding: 1px 6px; border-radius: 10px; }
+.server-toggle .arrow { font-size: 10px; transition: transform 0.2s; }
+.server-toggle.collapsed .arrow { transform: rotate(-90deg); }
+.server-tools { overflow: hidden; }
+.server-tools.hidden { max-height: 0 !important; }
+.tool-item { padding: 6px 14px 6px 22px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); cursor: pointer; border-left: 2px solid transparent; transition: all 0.1s; }
+.tool-item:hover { background: var(--surface2); }
+.tool-item.active { background: var(--accent-dim); border-left-color: var(--accent); color: var(--text); }
+.tool-item .tool-icon { width: 22px; height: 22px; border-radius: 4px; background: var(--surface3); display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; }
+.tool-item .tool-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Tool preview */
+.tool-preview { border-top: 1px solid var(--border); padding: 14px; flex-shrink: 0; display: none; max-height: 45%; overflow-y: auto; }
+.tool-preview.visible { display: block; }
+.tool-preview-name { font-size: 13px; font-weight: 700; font-family: var(--mono); color: var(--text); margin-bottom: 2px; }
+.tool-preview-server { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-bottom: 8px; }
+.tool-preview-desc { font-size: 12px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; }
+.tool-preview-params { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); margin-bottom: 6px; }
+.tool-preview-param { padding: 4px 0; font-size: 11px; display: flex; align-items: baseline; gap: 6px; }
+.tool-preview-param .pp-name { font-family: var(--mono); font-weight: 600; color: var(--text); }
+.tool-preview-param .pp-type { font-size: 9px; font-weight: 600; text-transform: uppercase; color: var(--text3); background: var(--surface3); padding: 1px 5px; border-radius: 3px; }
+.tool-preview-param .pp-req { color: var(--red); font-size: 12px; }
+.tool-preview-param .pp-desc { font-size: 10px; color: var(--text3); margin-left: 18px; margin-top: 1px; }
+
+.sidebar-footer { padding: 10px 14px; border-top: 1px solid var(--border); }
+.mcp-badge { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--green-dim); border: 1px solid rgba(34,197,94,0.2); border-radius: 6px; font-size: 10px; color: var(--green); cursor: pointer; }
+.mcp-badge:hover { background: rgba(34,197,94,0.18); }
+.mcp-badge code { font-family: var(--mono); font-size: 10px; }
+.mcp-badge .mcp-label { font-weight: 600; }
+
+/* ── Main: Trajectory ── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* Header bar */
+.traj-topbar { padding: 14px 28px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+.traj-topbar-left { display: flex; align-items: center; gap: 10px; }
+.traj-topbar-left h1 { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+.traj-topbar-left .turn-count { font-size: 10px; background: var(--accent-dim); color: var(--accent); padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+.traj-topbar-right { display: flex; gap: 6px; }
+
+/* Prompt */
+.traj-prompt { padding: 20px 28px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.field-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); margin-bottom: 6px; }
+.traj-prompt textarea { width: 100%; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 13px; font-family: var(--sans); outline: none; resize: vertical; min-height: 48px; max-height: 160px; line-height: 1.5; transition: border 0.15s; }
+.traj-prompt textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-dim); }
+.traj-prompt textarea::placeholder { color: var(--text3); }
+
+/* Scrollable turns area */
+.traj-scroll { flex: 1; overflow-y: auto; padding: 20px 28px; }
+.traj-scroll-inner { max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+
+/* Turn cards container */
+#trajectory-turns { display: flex; flex-direction: column; gap: 40px; }
+
+/* Turn card */
+.turn-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 20px; transition: border-color 0.2s, box-shadow 0.2s; }
+.turn-card.golden { border-color: #ca8a04; box-shadow: 0 0 0 1px rgba(202,138,4,0.3), 0 0 20px rgba(202,138,4,0.08); }
+.turn-card.golden .turn-badge { background: rgba(202,138,4,0.15); color: #eab308; }
+
+/* Golden checkbox */
+.golden-check { display: flex; align-items: center; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.golden-check input[type="checkbox"] { appearance: none; width: 16px; height: 16px; border: 1.5px solid var(--border2); border-radius: 4px; background: var(--bg); cursor: pointer; position: relative; flex-shrink: 0; transition: all 0.15s; }
+.golden-check input[type="checkbox"]:checked { background: #ca8a04; border-color: #ca8a04; }
+.golden-check input[type="checkbox"]:checked::after { content: ''; position: absolute; left: 4.5px; top: 1.5px; width: 4px; height: 8px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.golden-check label { font-size: 11px; font-weight: 600; color: var(--text3); cursor: pointer; user-select: none; }
+.golden-check label .golden-star { color: #eab308; }
+.turn-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.turn-badge { font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent-dim); padding: 3px 10px; border-radius: 6px; }
+.turn-delete { background: none; border: none; color: var(--text3); cursor: pointer; padding: 4px; border-radius: 4px; line-height: 0; display: flex; align-items: center; }
+.turn-delete:hover { background: var(--red-dim); color: var(--red); }
+
+/* Turn fields */
+.turn-field { margin-bottom: 12px; }
+.turn-field:last-child { margin-bottom: 0; }
+.turn-field textarea { width: 100%; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 12px; font-family: var(--sans); outline: none; resize: none; min-height: 32px; line-height: 1.5; transition: border 0.15s; overflow: hidden; }
+.turn-field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.turn-field textarea::placeholder { color: var(--text3); }
+
+/* Reasoning highlight overlay */
+.reasoning-wrap { position: relative; }
+.reasoning-wrap textarea { color: transparent; caret-color: var(--text); background: transparent; position: relative; z-index: 1; }
+.reasoning-wrap textarea::placeholder { color: var(--text3); }
+.reasoning-hl { position: absolute; top: 0; left: 0; right: 0; padding: 8px 12px; border: 1px solid transparent; border-radius: var(--radius); font-size: 12px; font-family: var(--sans); line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; pointer-events: none; color: var(--text); background: var(--bg); }
+.reasoning-hl code { font-family: var(--mono); font-size: 11px; color: var(--accent); background: var(--accent-dim); padding: 1px 5px; border-radius: 3px; }
+
+/* Tool attachment */
+.turn-tool-section { margin-top: 4px; display: flex; flex-direction: column; gap: 8px; }
+.btn-attach { padding: 7px 14px; background: var(--surface2); border: 1px dashed var(--border2); border-radius: var(--radius); color: var(--text3); font-size: 12px; font-weight: 500; font-family: var(--sans); cursor: pointer; transition: all 0.15s; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.btn-attach:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+.tool-attached { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; }
+.tool-attached-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.tool-attached-name { font-size: 12px; font-weight: 600; font-family: var(--mono); color: var(--accent); }
+.tool-attached-remove { background: none; border: none; color: var(--text3); cursor: pointer; padding: 4px; border-radius: 4px; line-height: 0; display: flex; align-items: center; }
+.tool-attached-remove:hover { background: var(--red-dim); color: var(--red); }
+.tool-attached pre { font-family: var(--mono); font-size: 11px; color: var(--text2); background: var(--bg); padding: 6px 8px; border-radius: 4px; white-space: pre-wrap; word-break: break-word; margin-top: 4px; line-height: 1.5; }
+.tool-attached pre.tool-output-pre { max-height: 300px; overflow-y: auto; }
+.tool-attached-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text3); margin-top: 8px; margin-bottom: 2px; }
+
+/* Add turn button */
+.traj-add-bar { padding-top: 8px; }
+.btn-add-turn { padding: 10px 20px; background: var(--surface); border: 1px dashed var(--border2); border-radius: var(--radius); color: var(--text3); font-size: 13px; font-weight: 600; font-family: var(--sans); cursor: pointer; transition: all 0.15s; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.btn-add-turn:hover { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+
+/* Buttons */
+.btn-traj { padding: 5px 12px; background: var(--surface3); border: none; color: var(--text3); border-radius: 4px; font-size: 11px; font-weight: 600; font-family: var(--sans); cursor: pointer; transition: all 0.15s; }
+.btn-traj:hover { background: var(--border); color: var(--text); }
+.btn-traj:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-traj.danger:hover { background: var(--red-dim); color: var(--red); }
+
+/* ── Modal ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 100; }
+.modal-overlay.open { display: flex; }
+.modal { width: 640px; max-height: 80vh; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.modal-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+.modal-header-left { display: flex; align-items: center; gap: 10px; }
+.modal-header h3 { font-size: 14px; font-weight: 700; }
+.modal-back { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 4px; }
+.modal-back:hover { color: var(--text); background: var(--surface3); }
+.modal-close { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 18px; padding: 2px 8px; border-radius: 4px; line-height: 1; }
+.modal-close:hover { color: var(--text); background: var(--surface3); }
+.modal-body { flex: 1; overflow-y: auto; }
+
+/* Modal: tool list */
+.modal-search { width: 100%; padding: 10px 16px; background: var(--bg); border: none; border-bottom: 1px solid var(--border); color: var(--text); font-size: 13px; font-family: var(--sans); outline: none; }
+.modal-search::placeholder { color: var(--text3); }
+.modal-tool-list { padding: 4px 0; }
+.modal-tool-item { padding: 10px 20px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: background 0.1s; }
+.modal-tool-item:hover { background: var(--surface2); }
+.modal-tool-item .mti-icon { width: 28px; height: 28px; border-radius: 6px; background: var(--surface3); display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+.modal-tool-item .mti-info { min-width: 0; }
+.modal-tool-item .mti-name { font-size: 13px; font-weight: 600; }
+.modal-tool-item .mti-server { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+.modal-tool-item .mti-desc { font-size: 11px; color: var(--text3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Modal: params step */
+.modal-params { padding: 16px 20px; }
+.modal-tool-badge { font-size: 12px; font-family: var(--mono); color: var(--accent); margin-bottom: 4px; }
+.modal-tool-desc { font-size: 12px; color: var(--text3); margin-bottom: 16px; line-height: 1.5; }
+.modal-param-group { margin-bottom: 14px; }
+.modal-param-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.modal-param-name { font-size: 12px; font-weight: 600; font-family: var(--mono); display: flex; align-items: center; gap: 4px; }
+.modal-param-name .req { color: var(--red); }
+.modal-param-type { font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--text3); background: var(--surface3); padding: 1px 6px; border-radius: 4px; }
+.modal-param-desc { font-size: 11px; color: var(--text3); margin-bottom: 6px; }
+.modal-param-input { width: 100%; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 13px; font-family: var(--mono); outline: none; transition: border 0.15s; }
+.modal-param-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.modal-param-input::placeholder { color: var(--text3); font-family: var(--sans); font-size: 12px; }
+textarea.modal-param-input { min-height: 80px; resize: vertical; line-height: 1.5; }
+.modal-no-params { color: var(--text3); font-size: 12px; text-align: center; padding: 20px; }
+.modal-input-toggle { display: flex; gap: 0; margin-bottom: 14px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.modal-input-toggle button { flex: 1; padding: 6px 12px; background: var(--bg); border: none; color: var(--text3); font-size: 11px; font-weight: 600; font-family: var(--sans); cursor: pointer; transition: all 0.15s; }
+.modal-input-toggle button:not(:last-child) { border-right: 1px solid var(--border); }
+.modal-input-toggle button.active { background: var(--accent-dim); color: var(--accent); }
+.modal-input-toggle button:hover:not(.active) { background: var(--surface3); color: var(--text2); }
+#modal-json-input { width: 100%; min-height: 160px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 12px; font-family: var(--mono); outline: none; resize: vertical; line-height: 1.5; transition: border 0.15s; }
+#modal-json-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+#modal-json-input::placeholder { color: var(--text3); font-family: var(--sans); }
+
+.modal-header-right { display: flex; align-items: center; gap: 6px; }
+.btn-modal-run { width: 32px; height: 32px; background: var(--green); color: white; border: none; border-radius: 50%; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center; padding: 0; }
+.btn-modal-run:hover { background: #16a34a; transform: scale(1.1); }
+.btn-modal-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-modal-run svg { display: block; }
+.btn-modal-run .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; display: none; }
+.btn-modal-run.loading svg { display: none; }
+.btn-modal-run.loading .spinner { display: block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Modal: result */
+.modal-result { padding: 16px 20px; border-top: 1px solid var(--border); }
+.modal-result-status { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; display: inline-block; margin-bottom: 8px; }
+.modal-result-status.ok { background: var(--green-dim); color: var(--green); }
+.modal-result-status.err { background: var(--red-dim); color: var(--red); }
+.modal-result pre { font-family: var(--mono); font-size: 11px; color: var(--text2); background: var(--bg); padding: 10px 12px; border-radius: var(--radius); max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-word; line-height: 1.6; }
+.btn-modal-attach { margin-top: 12px; width: 100%; padding: 9px 20px; background: var(--green-dim); color: var(--green); border: 1px solid rgba(34,197,94,0.2); border-radius: var(--radius); font-size: 13px; font-weight: 600; font-family: var(--sans); cursor: pointer; transition: all 0.15s; }
+.btn-modal-attach:hover { background: rgba(34,197,94,0.25); }
+
+/* JSON highlighting */
+.json-key { color: #7dd3fc; }
+.json-string { color: #86efac; }
+.json-number { color: #fbbf24; }
+.json-bool { color: #c084fc; }
+.json-null { color: #71717a; }
+
+/* Empty state */
+.traj-empty { text-align: center; padding: 60px 20px; color: var(--text3); }
+.traj-empty svg { width: 48px; height: 48px; opacity: 0.15; margin-bottom: 16px; }
+.traj-empty h3 { font-size: 15px; font-weight: 600; color: var(--text2); margin-bottom: 6px; }
+.traj-empty p { font-size: 12px; line-height: 1.6; }
+
+/* ── Tab bar ── */
+.traj-tabs { display: flex; align-items: center; gap: 4px; padding: 8px 28px; border-bottom: 1px solid var(--border); background: var(--surface); overflow-x: auto; flex-shrink: 0; }
+.traj-tabs::-webkit-scrollbar { height: 3px; }
+.tab-item { display: flex; align-items: center; gap: 6px; padding: 5px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; white-space: nowrap; transition: all 0.15s; flex-shrink: 0; }
+.tab-item:hover { border-color: var(--border2); background: var(--surface3); }
+.tab-item.active { border-color: var(--accent); background: var(--accent-dim); }
+.tab-item .tab-name { font-size: 12px; font-weight: 500; color: var(--text2); max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.tab-item.active .tab-name { color: var(--text); font-weight: 600; }
+.tab-badge { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 1px 5px; border-radius: 3px; flex-shrink: 0; }
+.tab-badge.human { background: var(--surface3); color: var(--text3); }
+.tab-badge.agent { background: var(--blue-dim); color: var(--blue); }
+.tab-badge.import { background: var(--orange-dim); color: var(--orange); }
+.tab-close { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; border-radius: 3px; opacity: 0; transition: all 0.15s; }
+.tab-item:hover .tab-close, .tab-item.active .tab-close { opacity: 1; }
+.tab-close:hover { color: var(--red); background: var(--red-dim); }
+.btn-add-tab { padding: 5px 10px; background: none; border: 1px dashed var(--border2); border-radius: 6px; color: var(--text3); font-size: 16px; cursor: pointer; line-height: 1; flex-shrink: 0; transition: all 0.15s; }
+.btn-add-tab:hover { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+
+/* ── Topbar buttons ── */
+.btn-generate { padding: 5px 12px; background: var(--blue-dim); border: 1px solid rgba(59,130,246,0.25); color: var(--blue); border-radius: 4px; font-size: 11px; font-weight: 600; font-family: var(--sans); cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 5px; }
+.btn-generate:hover { background: rgba(59,130,246,0.2); border-color: var(--blue); }
+.btn-settings { padding: 5px 12px; background: var(--surface3); border: 1px solid var(--border); color: var(--text3); border-radius: 4px; font-size: 11px; font-weight: 600; font-family: var(--sans); cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 5px; }
+.btn-settings:hover { background: var(--border); color: var(--text); }
+
+/* ── Settings & Generate modals ── */
+.model-modal-body { padding: 16px 20px; }
+.model-field { margin-bottom: 14px; }
+.model-field label { display: block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); margin-bottom: 4px; }
+.model-field input, .model-field select, .model-field textarea { width: 100%; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 13px; font-family: var(--mono); outline: none; transition: border 0.15s; }
+.model-field input:focus, .model-field select:focus, .model-field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.model-field input::placeholder, .model-field textarea::placeholder { color: var(--text3); font-family: var(--sans); font-size: 12px; }
+.model-field .hint { font-size: 10px; color: var(--text3); margin-top: 3px; }
+.model-field textarea { min-height: 56px; resize: vertical; font-family: var(--sans); font-size: 12px; line-height: 1.5; }
+.provider-presets { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.provider-preset { padding: 2px 8px; background: var(--surface3); border: 1px solid var(--border); border-radius: 4px; color: var(--text3); font-size: 10px; font-family: var(--mono); cursor: pointer; transition: all 0.15s; }
+.provider-preset:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Model card list in settings */
+.model-cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.model-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; transition: all 0.15s; }
+.model-card:hover { border-color: var(--border2); }
+.model-card.editing { border-color: var(--accent); background: var(--accent-dim); }
+.model-card-info { flex: 1; min-width: 0; }
+.model-card-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.model-card-detail { font-size: 10px; color: var(--text3); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.model-card-actions { display: flex; gap: 4px; }
+.model-card-btn { background: none; border: none; color: var(--text3); cursor: pointer; padding: 4px; border-radius: 4px; line-height: 0; }
+.model-card-btn:hover { color: var(--red); background: var(--red-dim); }
+.btn-add-model { width: 100%; padding: 8px; background: var(--surface2); border: 1px dashed var(--border2); border-radius: var(--radius); color: var(--text3); font-size: 12px; font-weight: 500; font-family: var(--sans); cursor: pointer; transition: all 0.15s; text-align: center; }
+.btn-add-model:hover { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+
+/* Generate modal: model selector */
+.model-select-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.model-select-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; transition: all 0.15s; }
+.model-select-item:hover { border-color: var(--border2); background: var(--surface3); }
+.model-select-item.selected { border-color: var(--blue); background: var(--blue-dim); }
+.model-select-item .msi-radio { width: 16px; height: 16px; border: 2px solid var(--border2); border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.model-select-item.selected .msi-radio { border-color: var(--blue); }
+.model-select-item.selected .msi-radio::after { content: ''; width: 8px; height: 8px; background: var(--blue); border-radius: 50%; }
+.model-select-item .msi-name { font-size: 13px; font-weight: 600; }
+.model-select-item .msi-detail { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+.no-models-msg { text-align: center; padding: 20px; color: var(--text3); font-size: 12px; }
+
+.btn-run-agent { width: 100%; padding: 10px 20px; background: var(--blue); color: white; border: none; border-radius: var(--radius); font-size: 13px; font-weight: 600; font-family: var(--sans); cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-run-agent:hover { background: #2563eb; }
+.btn-run-agent:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-run-agent .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; display: none; }
+.btn-run-agent.loading .spinner { display: block; }
+.btn-run-agent.loading .btn-label { display: none; }
+.agent-status { margin-top: 10px; padding: 8px 12px; border-radius: var(--radius); font-size: 12px; display: none; }
+.agent-status.success { display: block; background: var(--green-dim); color: var(--green); border: 1px solid rgba(34,197,94,0.2); }
+.agent-status.error { display: block; background: var(--red-dim); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+</style>
+</head>
+<body>
+
+<!-- Sidebar: tools reference -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="logo"><h1>Tools</h1></div>
+    <div class="stats" id="stats">
+      <span class="stat"><span class="dot live"></span> Loading</span>
+    </div>
+  </div>
+  <div class="search-box">
+    <input type="text" id="search" placeholder="Search tools..." autocomplete="off" spellcheck="false">
+  </div>
+  <div class="tool-list" id="tool-list"></div>
+  <div class="tool-preview" id="tool-preview"></div>
+  <div class="sidebar-footer">
+    <div class="mcp-badge" onclick="copyMcp()" title="Click to copy">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      <span class="mcp-label">MCP</span>
+      <code id="mcp-url">/mcp/sse</code>
+    </div>
+  </div>
+</aside>
+
+<!-- Main: Trajectory Builder -->
+<main class="main">
+  <div class="traj-topbar">
+    <div class="traj-topbar-left">
+      <h1>Trajectory Builder</h1>
+      <span class="turn-count" id="turn-count">0 turns</span>
+    </div>
+    <div class="traj-topbar-right">
+      <button class="btn-settings" onclick="openSettingsModal()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Settings
+      </button>
+      <button class="btn-generate" onclick="openGenerateModal()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Generate
+      </button>
+      <button class="btn-traj" onclick="document.getElementById('import-file').click()">Import JSON</button>
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importTrajectory(event)">
+      <button class="btn-traj" onclick="exportTrajectory()" id="btn-export" disabled>Export JSON</button>
+      <button class="btn-traj danger" onclick="clearTrajectory()" id="btn-clear-traj" disabled>Clear</button>
+    </div>
+  </div>
+
+  <div class="traj-tabs" id="traj-tabs"></div>
+
+  <div class="traj-prompt">
+    <div class="field-label">Prompt</div>
+    <textarea id="ref-prompt" placeholder="The task or question this trajectory solves..."></textarea>
+  </div>
+
+  <div class="traj-scroll">
+    <div class="traj-scroll-inner">
+      <div id="trajectory-turns">
+        <div class="traj-empty" id="traj-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
+          <h3>No turns yet</h3>
+          <p>Add a turn to start building the trajectory.<br>Each turn can have reasoning, a message, and a tool call.</p>
+        </div>
+      </div>
+      <div class="traj-add-bar">
+        <button class="btn-add-turn" onclick="addTurn()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Turn</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Tool Modal -->
+<div class="modal-overlay" id="tool-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <button class="modal-back" id="modal-back" onclick="modalGoBack()">&#8592;</button>
+        <h3 id="modal-title">Select Tool</h3>
+      </div>
+      <div class="modal-header-right">
+        <button class="btn-modal-run" id="modal-run-btn" onclick="runModalTool()" style="display:none">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span class="spinner"></span>
+        </button>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="modal-body">
+      <!-- Step 1: tool list (rendered by JS) -->
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal: manage model presets -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal" style="width:520px">
+    <div class="modal-header">
+      <div class="modal-header-left"><h3>Model Settings</h3></div>
+      <button class="modal-close" onclick="closeSettingsModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="model-modal-body">
+        <!-- Global system prompt -->
+        <div class="model-field">
+          <label>System Prompt <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3)">(shared across all models, saved to file)</span></label>
+          <textarea id="settings-system-prompt" style="min-height:120px;font-family:var(--mono);font-size:11px" placeholder="Write your system prompt here..."></textarea>
+          <div class="hint">Auto-saves on edit. Uses {tool_list} placeholder for dynamic tool injection.</div>
+        </div>
+
+        <div style="margin-top:8px;margin-bottom:16px;border-top:1px solid var(--border)"></div>
+
+        <!-- Saved models list -->
+        <div class="model-field"><label>Saved Models</label></div>
+        <div class="model-cards" id="model-cards"></div>
+        <button class="btn-add-model" onclick="editModelPreset(null)">+ Add Model</button>
+
+        <!-- Edit form (hidden until add/edit clicked) -->
+        <div id="model-edit-form" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <div class="model-field">
+            <label>Display Name</label>
+            <input type="text" id="mp-name" placeholder="e.g. Gemini Flash, GPT-4o, Local LLM">
+          </div>
+          <div class="model-field">
+            <label>API Key</label>
+            <input type="password" id="mp-api-key" placeholder="AIza... (Gemini) or sk-... (OpenAI)" autocomplete="off">
+          </div>
+          <div class="model-field">
+            <label>Base URL</label>
+            <input type="text" id="mp-base-url" value="https://generativelanguage.googleapis.com/v1beta/openai/">
+            <div class="provider-presets">
+              <span class="provider-preset" onclick="document.getElementById('mp-base-url').value='https://generativelanguage.googleapis.com/v1beta/openai/'">Gemini</span>
+              <span class="provider-preset" onclick="document.getElementById('mp-base-url').value='https://api.openai.com/v1'">OpenAI</span>
+              <span class="provider-preset" onclick="document.getElementById('mp-base-url').value='https://openrouter.ai/api/v1'">OpenRouter</span>
+              <span class="provider-preset" onclick="document.getElementById('mp-base-url').value='https://api.together.xyz/v1'">Together</span>
+              <span class="provider-preset" onclick="document.getElementById('mp-base-url').value='https://api.groq.com/openai/v1'">Groq</span>
+              <span class="provider-preset" onclick="document.getElementById('mp-base-url').value='http://localhost:1234/v1'">Local</span>
+            </div>
+          </div>
+          <div class="model-field">
+            <label>Model ID</label>
+            <input type="text" id="mp-model" placeholder="gemini-2.5-flash, gpt-4o, etc.">
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn-run-agent" style="background:var(--green)" onclick="saveModelPreset()">
+              <span class="btn-label">Save Model</span>
+            </button>
+            <button class="btn-traj" onclick="cancelEditPreset()" style="padding:10px 20px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Generate Modal: pick model and run -->
+<div class="modal-overlay" id="generate-modal">
+  <div class="modal" style="width:480px">
+    <div class="modal-header">
+      <div class="modal-header-left"><h3>Generate Trajectory</h3></div>
+      <button class="modal-close" onclick="closeGenerateModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="model-modal-body">
+        <div class="model-field"><label>Select Model</label></div>
+        <div class="model-select-list" id="gen-model-list"></div>
+        <div class="model-field">
+          <label>Max Turns</label>
+          <input type="number" id="gen-max-turns" value="10" min="1" max="50">
+        </div>
+        <div class="model-field">
+          <label>Temperature</label>
+          <input type="number" id="gen-temperature" value="0.7" min="0" max="2" step="0.1">
+        </div>
+        <button class="btn-run-agent" id="btn-run-agent" onclick="runAgentGeneration()">
+          <span class="btn-label">Generate</span>
+          <span class="spinner"></span>
+        </button>
+        <div class="agent-status" id="agent-status"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const svgIcon = {
+  search: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+  trash: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>',
+  plus: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  wrench: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>',
+  globe: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>',
+  map: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+  play: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+  book: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>',
+  calc: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="14" x2="8" y2="14.01"/><line x1="12" y1="14" x2="12" y2="14.01"/></svg>',
+};
+const serverIcon = {
+  'calculator': svgIcon.calc, 'wikipedia': svgIcon.book, 'arxiv': svgIcon.book,
+  'anilist': svgIcon.globe, 'ddg-search': svgIcon.search,
+  'osm-mcp-server': svgIcon.map, 'e2b-server': svgIcon.play,
+};
+function getToolIcon(server) { return serverIcon[server] || svgIcon.wrench; }
+
+let allTools = [];
+
+// ── Multi-trajectory tabs state ──
+let tabs = [{ id: 0, name: "Trajectory 1", source: "human", model: null, turns: [] }];
+let activeTabId = 0;
+let tabIdCounter = 1;
+let trajectory = tabs[0].turns; // convenience reference to active tab's turns
+
+let modalTurnIndex = -1;
+let modalSelectedTool = null;
+let modalResult = null;
+let modalInputMode = 'params';
+
+// ── Load & Sidebar ──
+
+async function loadTools() {
+  const data = await (await fetch('/tools/')).json();
+  allTools = data.tools;
+  const servers = [...new Set(allTools.map(t => t.server))];
+  document.getElementById('stats').innerHTML =
+    `<span class="stat"><span class="dot live"></span>${servers.length} servers</span>` +
+    `<span class="stat">${allTools.length} tools</span>`;
+  renderSidebar(allTools);
+}
+
+function renderSidebar(tools) {
+  const list = document.getElementById('tool-list');
+  list.innerHTML = '';
+  const grouped = {};
+  tools.forEach(t => { (grouped[t.server] ??= []).push(t); });
+
+  Object.entries(grouped).forEach(([server, stools]) => {
+    const g = document.createElement('div');
+    g.className = 'server-group';
+    const toggle = document.createElement('div');
+    toggle.className = 'server-toggle collapsed';
+    toggle.innerHTML = `<span>${server}</span><span style="display:flex;align-items:center;gap:6px"><span class="cnt">${stools.length}</span><span class="arrow">&#x25BE;</span></span>`;
+    const toolsDiv = document.createElement('div');
+    toolsDiv.className = 'server-tools hidden';
+    toggle.onclick = () => { toggle.classList.toggle('collapsed'); toolsDiv.classList.toggle('hidden'); };
+
+    stools.forEach(tool => {
+      const item = document.createElement('div');
+      item.className = 'tool-item';
+      item.dataset.fullName = tool.full_name;
+      item.innerHTML = `<div class="tool-icon">${getToolIcon(tool.server)}</div><span class="tool-name">${tool.name}</span>`;
+      item.onclick = () => showToolPreview(tool);
+      toolsDiv.appendChild(item);
+    });
+    g.appendChild(toggle);
+    g.appendChild(toolsDiv);
+    list.appendChild(g);
+  });
+}
+
+document.getElementById('search').addEventListener('input', e => {
+  const q = e.target.value.toLowerCase();
+  renderSidebar(q ? allTools.filter(t => t.full_name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)) : allTools);
+});
+
+// ── Tool Preview ──
+
+function showToolPreview(tool) {
+  document.querySelectorAll('.tool-item').forEach(el => el.classList.toggle('active', el.dataset.fullName === tool.full_name));
+  const preview = document.getElementById('tool-preview');
+  const schema = tool.inputSchema;
+  const props = schema.properties || {};
+  const required = schema.required || [];
+
+  let paramsHtml = '';
+  if (Object.keys(props).length) {
+    paramsHtml = '<div class="tool-preview-params">Parameters</div>';
+    Object.entries(props).forEach(([name, config]) => {
+      const isReq = required.includes(name);
+      paramsHtml += `<div class="tool-preview-param">
+        <span class="pp-name">${esc(name)}</span>${isReq ? '<span class="pp-req">*</span>' : ''}
+        <span class="pp-type">${config.type || 'string'}</span>
+      </div>`;
+      if (config.description) {
+        paramsHtml += `<div class="tool-preview-param"><span class="pp-desc">${esc(config.description)}</span></div>`;
+      }
+    });
+  } else {
+    paramsHtml = '<div style="font-size:11px;color:var(--text3)">No parameters</div>';
+  }
+
+  preview.innerHTML = `
+    <div class="tool-preview-name">${esc(tool.name)}</div>
+    <div class="tool-preview-server">${esc(tool.server)}</div>
+    <div class="tool-preview-desc">${esc(tool.description)}</div>
+    ${paramsHtml}
+  `;
+  preview.classList.add('visible');
+}
+
+// ── Tab CRUD ──
+
+function getActiveTab() {
+  return tabs.find(t => t.id === activeTabId);
+}
+
+function renderTabs() {
+  const bar = document.getElementById('traj-tabs');
+  let html = '';
+  tabs.forEach(tab => {
+    const isActive = tab.id === activeTabId;
+    html += `<div class="tab-item${isActive ? ' active' : ''}" onclick="switchTab(${tab.id})" ondblclick="renameTab(${tab.id}, event)">
+      <span class="tab-name">${esc(tab.name)}</span>
+      <span class="tab-badge ${tab.source}">${tab.source}</span>
+      <button class="tab-close" onclick="closeTab(${tab.id}, event)" title="Close tab">&times;</button>
+    </div>`;
+  });
+  html += `<button class="btn-add-tab" onclick="addTab()" title="New trajectory">+</button>`;
+  bar.innerHTML = html;
+}
+
+function addTab(name, source, model, turns) {
+  syncTurnFields();
+  const tab = {
+    id: tabIdCounter++,
+    name: name || `Trajectory ${tabIdCounter}`,
+    source: source || 'human',
+    model: model || null,
+    turns: turns || [],
+  };
+  tabs.push(tab);
+  activeTabId = tab.id;
+  trajectory = tab.turns;
+  renderTabs();
+  renderTrajectory();
+  document.getElementById('ref-prompt').focus();
+  return tab;
+}
+
+function switchTab(id) {
+  if (id === activeTabId) return;
+  syncTurnFields();
+  activeTabId = id;
+  const tab = getActiveTab();
+  if (!tab) return;
+  trajectory = tab.turns;
+  renderTabs();
+  renderTrajectory();
+}
+
+function closeTab(id, event) {
+  if (event) { event.stopPropagation(); event.preventDefault(); }
+  if (tabs.length <= 1) return;
+  const tab = tabs.find(t => t.id === id);
+  if (tab && tab.turns.length > 0 && !confirm(`Close "${tab.name}"? It has ${tab.turns.length} turn(s).`)) return;
+  const idx = tabs.findIndex(t => t.id === id);
+  tabs.splice(idx, 1);
+  if (activeTabId === id) {
+    const newIdx = Math.min(idx, tabs.length - 1);
+    activeTabId = tabs[newIdx].id;
+    trajectory = tabs[newIdx].turns;
+  }
+  renderTabs();
+  renderTrajectory();
+}
+
+function renameTab(id, event) {
+  if (event) { event.stopPropagation(); event.preventDefault(); }
+  const tab = tabs.find(t => t.id === id);
+  if (!tab) return;
+  const newName = prompt('Rename tab:', tab.name);
+  if (newName && newName.trim()) {
+    tab.name = newName.trim();
+    renderTabs();
+  }
+}
+
+// ── Trajectory CRUD ──
+
+function syncTurnFields() {
+  trajectory.forEach((turn, i) => {
+    const rEl = document.getElementById(`turn-reasoning-${i}`);
+    const mEl = document.getElementById(`turn-message-${i}`);
+    if (rEl) turn.reasoning = rEl.value;
+    if (mEl) turn.message = mEl.value;
+  });
+}
+
+function addTurn() {
+  syncTurnFields();
+  trajectory.push({
+    turn: trajectory.length + 1,
+    reasoning: '',
+    message: '',
+    tool_calls: []
+  });
+  renderTrajectory();
+  // Focus the reasoning field of the new turn
+  const idx = trajectory.length - 1;
+  setTimeout(() => {
+    const el = document.getElementById(`turn-reasoning-${idx}`);
+    if (el) el.focus();
+  }, 50);
+}
+
+function removeTurn(index) {
+  syncTurnFields();
+  trajectory.splice(index, 1);
+  trajectory.forEach((t, i) => t.turn = i + 1);
+  renderTrajectory();
+}
+
+function removeToolFromTurn(turnIdx, toolIdx) {
+  syncTurnFields();
+  trajectory[turnIdx].tool_calls.splice(toolIdx, 1);
+  renderTrajectory();
+}
+
+function toggleGolden(index, checked) {
+  syncTurnFields();
+  trajectory[index].golden = checked;
+  renderTrajectory();
+}
+
+function clearTrajectory() {
+  if (trajectory.length && !confirm('Clear all turns in this tab?')) return;
+  const tab = getActiveTab();
+  tab.turns = [];
+  trajectory = tab.turns;
+  renderTrajectory();
+}
+
+function updateButtons() {
+  const has = trajectory.length > 0;
+  const anyTurns = tabs.some(t => t.turns.length > 0);
+  const activeTab = getActiveTab();
+  const isAgent = activeTab && activeTab.source === 'agent';
+  document.getElementById('btn-export').disabled = !anyTurns;
+  document.getElementById('btn-clear-traj').disabled = !has;
+  document.getElementById('turn-count').textContent = `${trajectory.length} turn${trajectory.length !== 1 ? 's' : ''}`;
+  document.getElementById('traj-empty').style.display = has || agentGenerating ? 'none' : '';
+  // Hide add turn button for agent tabs
+  document.querySelector('.traj-add-bar').style.display = isAgent ? 'none' : '';
+}
+
+function autoResizeAll() {
+  document.querySelectorAll('.turn-field textarea').forEach(autoResize);
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+function renderTrajectory() {
+  const container = document.getElementById('trajectory-turns');
+  const empty = document.getElementById('traj-empty');
+  container.innerHTML = '';
+  container.appendChild(empty);
+
+  const activeTab = getActiveTab();
+  const isAgent = activeTab && activeTab.source === 'agent';
+
+  trajectory.forEach((turn, i) => {
+    const isLast = i === trajectory.length - 1;
+    const card = document.createElement('div');
+    card.className = 'turn-card' + (isLast && turn.golden ? ' golden' : '');
+
+    // Build tool calls list (multiple per turn)
+    let toolsHtml = '';
+    const tcs = turn.tool_calls || [];
+    tcs.forEach((tc, ti) => {
+      const argsStr = JSON.stringify(tc.arguments, null, 2);
+      const outStr = tc.output ? JSON.stringify(tc.output, null, 2) : '';
+      toolsHtml += `
+        <div class="tool-attached">
+          <div class="tool-attached-header">
+            <span class="tool-attached-name">${esc(tc.server)}.${esc(tc.tool)}</span>
+            ${isAgent ? '' : `<button class="tool-attached-remove" onclick="removeToolFromTurn(${i},${ti})" title="Remove tool">${svgIcon.trash}</button>`}
+          </div>
+          <div class="tool-attached-label">Arguments</div>
+          <pre>${esc(argsStr)}</pre>
+          ${outStr ? `<div class="tool-attached-label">Output</div><pre class="tool-output-pre">${esc(outStr)}</pre>` : ''}
+        </div>`;
+    });
+    if (!isAgent) {
+      toolsHtml += `<button class="btn-attach" onclick="openModal(${i})">${svgIcon.plus} Attach Tool Call</button>`;
+    }
+
+    // Golden checkbox only on last turn
+    const goldenHtml = isLast ? `
+      <div class="golden-check">
+        <input type="checkbox" id="golden-${i}" ${turn.golden ? 'checked' : ''} onchange="toggleGolden(${i}, this.checked)">
+        <label for="golden-${i}"><span class="golden-star">&#9733;</span> Golden Turn</label>
+      </div>` : '';
+
+    const ro = isAgent ? 'readonly' : '';
+
+    card.innerHTML = `
+      <div class="turn-header">
+        <span class="turn-badge">Turn ${turn.turn}</span>
+        ${isAgent ? '' : `<button class="turn-delete" onclick="removeTurn(${i})" title="Remove turn">${svgIcon.trash}</button>`}
+      </div>
+      <div class="turn-field">
+        <div class="field-label" style="color:var(--orange)">Reasoning</div>
+        <div class="reasoning-wrap">
+          <div class="reasoning-hl" id="turn-reasoning-hl-${i}"></div>
+          <textarea id="turn-reasoning-${i}" placeholder="Internal reasoning / chain of thought..." ${ro} oninput="autoResize(this);updateReasoningHL(${i})">${esc(turn.reasoning)}</textarea>
+        </div>
+      </div>
+      <div class="turn-field">
+        <div class="field-label" style="color:var(--blue)">Message</div>
+        <textarea id="turn-message-${i}" placeholder="Assistant message to the user..." ${ro} oninput="autoResize(this)">${esc(turn.message)}</textarea>
+      </div>
+      <div class="turn-tool-section">${toolsHtml}</div>
+      ${goldenHtml}
+    `;
+    container.appendChild(card);
+  });
+
+  // Show generating indicator
+  if (agentGenerating) {
+    const indicator = document.createElement('div');
+    indicator.className = 'turn-card';
+    indicator.style.cssText = 'border-color:var(--blue);text-align:center;padding:24px;color:var(--blue);font-weight:600;font-size:13px;';
+    indicator.innerHTML = `<span style="display:inline-flex;align-items:center;gap:8px"><span class="spinner" style="display:inline-block;width:14px;height:14px;border:2px solid var(--blue-dim);border-top-color:var(--blue);border-radius:50%;animation:spin 0.6s linear infinite"></span> Generating turn ${trajectory.length + 1}...</span>`;
+    container.appendChild(indicator);
+  }
+
+  updateButtons();
+  setTimeout(() => {
+    autoResizeAll();
+    trajectory.forEach((_, i) => updateReasoningHL(i));
+  }, 0);
+}
+
+// ── Modal ──
+
+function openModal(turnIndex) {
+  syncTurnFields();
+  modalTurnIndex = turnIndex;
+  modalSelectedTool = null;
+  modalResult = null;
+  document.getElementById('modal-title').textContent = 'Select Tool';
+  document.getElementById('modal-back').style.display = '';
+  document.getElementById('modal-run-btn').style.display = 'none';
+  renderModalToolList(allTools);
+  document.getElementById('tool-modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('tool-modal').classList.remove('open');
+  modalTurnIndex = -1;
+  modalSelectedTool = null;
+  modalResult = null;
+}
+
+function modalGoBack() {
+  if (!modalSelectedTool) {
+    closeModal();
+    return;
+  }
+  modalSelectedTool = null;
+  modalResult = null;
+  document.getElementById('modal-title').textContent = 'Select Tool';
+  document.getElementById('modal-run-btn').style.display = 'none';
+  renderModalToolList(allTools);
+}
+
+function renderModalToolList(tools) {
+  const body = document.getElementById('modal-body');
+  let html = '<input class="modal-search" id="modal-search-input" placeholder="Search tools..." oninput="filterModalTools(this.value)" autofocus>';
+  html += '<div class="modal-tool-list" id="modal-tool-list-inner">';
+  tools.forEach((tool, idx) => {
+    html += `<div class="modal-tool-item" onclick="selectModalTool('${tool.full_name}')">
+      <div class="mti-icon">${getToolIcon(tool.server)}</div>
+      <div class="mti-info">
+        <div class="mti-name">${esc(tool.name)} <span class="mti-server">${esc(tool.server)}</span></div>
+        <div class="mti-desc">${esc(tool.description)}</div>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  body.innerHTML = html;
+}
+
+function filterModalTools(q) {
+  q = q.toLowerCase();
+  const filtered = q ? allTools.filter(t => t.full_name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)) : allTools;
+  const listEl = document.getElementById('modal-tool-list-inner');
+  let html = '';
+  filtered.forEach(tool => {
+    html += `<div class="modal-tool-item" onclick="selectModalTool('${tool.full_name}')">
+      <div class="mti-icon">${getToolIcon(tool.server)}</div>
+      <div class="mti-info">
+        <div class="mti-name">${esc(tool.name)} <span class="mti-server">${esc(tool.server)}</span></div>
+        <div class="mti-desc">${esc(tool.description)}</div>
+      </div>
+    </div>`;
+  });
+  listEl.innerHTML = html;
+}
+
+function selectModalTool(fullName) {
+  const tool = allTools.find(t => t.full_name === fullName);
+  if (!tool) return;
+  modalSelectedTool = tool;
+  modalResult = null;
+  modalInputMode = 'params';
+
+  document.getElementById('modal-title').textContent = `${tool.server}.${tool.name}`;
+  document.getElementById('modal-back').style.display = '';
+  document.getElementById('modal-run-btn').style.display = 'flex';
+
+  const body = document.getElementById('modal-body');
+  const schema = tool.inputSchema;
+  const props = schema.properties || {};
+  const required = schema.required || [];
+
+  let html = '<div class="modal-params">';
+  html += `<div class="modal-tool-desc">${esc(tool.description)}</div>`;
+
+  // Toggle: Parameters | JSON
+  html += `<div class="modal-input-toggle">
+    <button id="toggle-params" class="active" onclick="setModalInputMode('params')">Parameters</button>
+    <button id="toggle-json" onclick="setModalInputMode('json')">JSON</button>
+  </div>`;
+
+  // Params view
+  html += '<div id="modal-params-view">';
+  if (!Object.keys(props).length) {
+    html += '<div class="modal-no-params">No parameters needed</div>';
+  } else {
+    Object.entries(props).forEach(([name, config]) => {
+      const isReq = required.includes(name);
+      const isLarge = ['code','expression','query','text','q','content'].includes(name);
+      const defVal = config.default !== undefined ? config.default : (name === 'max_results' ? 5 : '');
+      html += `<div class="modal-param-group">
+        <div class="modal-param-header">
+          <span class="modal-param-name">${esc(name)}${isReq ? '<span class="req">*</span>' : ''}</span>
+          <span class="modal-param-type">${config.type || 'string'}</span>
+        </div>
+        ${config.description ? `<div class="modal-param-desc">${esc(config.description)}</div>` : ''}
+        ${isLarge
+          ? `<textarea class="modal-param-input" id="mparam-${name}" placeholder="Enter ${name}...">${esc(String(defVal))}</textarea>`
+          : `<input class="modal-param-input" id="mparam-${name}" placeholder="Enter ${name}..." value="${esc(String(defVal))}">`}
+      </div>`;
+    });
+  }
+  html += '</div>';
+
+  // JSON view
+  html += `<div id="modal-json-view" style="display:none">
+    <textarea id="modal-json-input" placeholder='{ "key": "value" }'>{}</textarea>
+  </div>`;
+
+  html += '</div><div id="modal-result-area"></div>';
+  body.innerHTML = html;
+}
+
+function setModalInputMode(mode) {
+  modalInputMode = mode;
+  const paramsView = document.getElementById('modal-params-view');
+  const jsonView = document.getElementById('modal-json-view');
+  const btnParams = document.getElementById('toggle-params');
+  const btnJson = document.getElementById('toggle-json');
+  if (!paramsView || !jsonView) return;
+
+  if (mode === 'json') {
+    paramsView.style.display = 'none';
+    jsonView.style.display = '';
+    btnParams.classList.remove('active');
+    btnJson.classList.add('active');
+    // Sync current param values into JSON textarea
+    const args = getParamArgs();
+    if (Object.keys(args).length) {
+      document.getElementById('modal-json-input').value = JSON.stringify(args, null, 2);
+    }
+  } else {
+    paramsView.style.display = '';
+    jsonView.style.display = 'none';
+    btnParams.classList.add('active');
+    btnJson.classList.remove('active');
+  }
+}
+
+function getParamArgs() {
+  if (!modalSelectedTool) return {};
+  const props = modalSelectedTool.inputSchema.properties || {};
+  const args = {};
+  Object.entries(props).forEach(([name, config]) => {
+    const el = document.getElementById(`mparam-${name}`);
+    if (el?.value) {
+      if (config.type === 'integer') args[name] = parseInt(el.value);
+      else if (config.type === 'number') args[name] = parseFloat(el.value);
+      else if (config.type === 'boolean') args[name] = el.value === 'true';
+      else args[name] = el.value;
+    }
+  });
+  return args;
+}
+
+function getModalArgs() {
+  if (modalInputMode === 'json') {
+    try {
+      return JSON.parse(document.getElementById('modal-json-input').value || '{}');
+    } catch (e) {
+      alert('Invalid JSON: ' + e.message);
+      return null;
+    }
+  }
+  return getParamArgs();
+}
+
+async function runModalTool() {
+  if (!modalSelectedTool) return;
+  const btn = document.getElementById('modal-run-btn');
+  btn.disabled = true;
+  btn.classList.add('loading');
+
+  const args = getModalArgs();
+  if (args === null) { btn.disabled = false; btn.classList.remove('loading'); return; }
+  try {
+    const resp = await fetch('/tools/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ server: modalSelectedTool.server, tool: modalSelectedTool.name, arguments: args }),
+    });
+    const data = await resp.json();
+    modalResult = { args, data };
+
+    const area = document.getElementById('modal-result-area');
+    const outStr = JSON.stringify(data, null, 2);
+    area.innerHTML = `
+      <div class="modal-result">
+        <span class="modal-result-status ${data.success ? 'ok' : 'err'}">${data.success ? 'Success' : 'Error'}</span>
+        <pre>${syntaxHighlight(outStr)}</pre>
+        <button class="btn-modal-attach" onclick="attachToolToTurn()">Attach</button>
+      </div>`;
+  } catch (err) {
+    const area = document.getElementById('modal-result-area');
+    area.innerHTML = `<div class="modal-result"><span class="modal-result-status err">Error</span><pre style="color:var(--red)">${esc(err.message)}</pre></div>`;
+  }
+  btn.disabled = false;
+  btn.classList.remove('loading');
+}
+
+function attachToolToTurn() {
+  if (modalTurnIndex < 0 || !modalSelectedTool || !modalResult) return;
+  syncTurnFields();
+  if (!trajectory[modalTurnIndex].tool_calls) trajectory[modalTurnIndex].tool_calls = [];
+  trajectory[modalTurnIndex].tool_calls.push({
+    server: modalSelectedTool.server,
+    tool: modalSelectedTool.name,
+    arguments: modalResult.args,
+    output: modalResult.data
+  });
+  closeModal();
+  renderTrajectory();
+}
+
+// ── Export ──
+
+function exportTrajectory() {
+  syncTurnFields();
+  const anyTurns = tabs.some(t => t.turns.length > 0);
+  if (!anyTurns) return;
+  const promptText = document.getElementById('ref-prompt').value.trim();
+  const payload = {
+    prompt: promptText || '',
+    trajectories: tabs.map(tab => ({
+      name: tab.name,
+      source: tab.source,
+      model: tab.model || undefined,
+      turns: tab.turns,
+    })),
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `trajectory-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function normalizeTurns(turns) {
+  turns.forEach((t, i) => {
+    t.turn = i + 1;
+    t.reasoning = t.reasoning || t.thought || '';
+    t.message = t.message || '';
+    if (!t.tool_calls) {
+      if (t.tool_call) {
+        t.tool_calls = [{ server: t.tool_call.server, tool: t.tool_call.tool, arguments: t.tool_call.arguments, output: t.output || null }];
+      } else {
+        t.tool_calls = [];
+      }
+    }
+    delete t.tool_call;
+    delete t.output;
+    delete t.thought;
+  });
+  return turns;
+}
+
+function importTrajectory(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const anyExisting = tabs.some(t => t.turns.length > 0);
+      if (anyExisting && !confirm('This will replace all current tabs. Continue?')) return;
+
+      // Three-tier detection
+      if (data.trajectories && Array.isArray(data.trajectories)) {
+        // New multi-tab format
+        document.getElementById('ref-prompt').value = data.prompt || '';
+        tabs = [];
+        tabIdCounter = 0;
+        data.trajectories.forEach(traj => {
+          tabs.push({
+            id: tabIdCounter++,
+            name: traj.name || `Trajectory ${tabIdCounter}`,
+            source: traj.source || 'import',
+            model: traj.model || null,
+            turns: normalizeTurns(traj.turns || []),
+          });
+        });
+        if (tabs.length === 0) {
+          tabs.push({ id: tabIdCounter++, name: 'Trajectory 1', source: 'human', model: null, turns: [] });
+        }
+      } else if (Array.isArray(data)) {
+        // Raw turns array
+        document.getElementById('ref-prompt').value = '';
+        tabs = [{ id: 0, name: 'Imported', source: 'import', model: null, turns: normalizeTurns(data) }];
+        tabIdCounter = 1;
+      } else {
+        // Old single format: {prompt, turns}
+        document.getElementById('ref-prompt').value = data.prompt || '';
+        tabs = [{ id: 0, name: 'Imported', source: 'import', model: null, turns: normalizeTurns(data.turns || []) }];
+        tabIdCounter = 1;
+      }
+
+      activeTabId = tabs[0].id;
+      trajectory = tabs[0].turns;
+      renderTabs();
+      renderTrajectory();
+    } catch (err) {
+      alert('Invalid JSON file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ── Utilities ──
+
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function truncate(str, max) {
+  return str.length > max ? str.slice(0, max) + '...' : str;
+}
+
+function syntaxHighlight(json) {
+  return json.replace(/("(?:\\.|[^"\\])*")\s*:/g, '<span class="json-key">$1</span>:')
+    .replace(/:\s*("(?:\\.|[^"\\])*")/g, ': <span class="json-string">$1</span>')
+    .replace(/:\s*(\d+\.?\d*)/g, ': <span class="json-number">$1</span>')
+    .replace(/:\s*(true|false)/g, ': <span class="json-bool">$1</span>')
+    .replace(/:\s*(null)/g, ': <span class="json-null">$1</span>');
+}
+
+function updateReasoningHL(i) {
+  const ta = document.getElementById(`turn-reasoning-${i}`);
+  const hl = document.getElementById(`turn-reasoning-hl-${i}`);
+  if (!ta || !hl) return;
+  const escaped = esc(ta.value);
+  hl.innerHTML = escaped.replace(/`([^`]+)`/g, '<code>$1</code>') + '\n';
+  hl.style.height = ta.style.height;
+}
+
+function copyMcp() {
+  const url = `${location.origin}/mcp/sse`;
+  navigator.clipboard.writeText(url);
+  const el = document.getElementById('mcp-url');
+  el.textContent = 'Copied!';
+  setTimeout(() => el.textContent = '/mcp/sse', 1500);
+}
+
+// ── System Prompt (file-based) ──
+
+let systemPromptText = '';
+
+async function loadSystemPrompt() {
+  try {
+    const resp = await fetch('/tools/system-prompt');
+    const data = await resp.json();
+    systemPromptText = data.content || '';
+    const el = document.getElementById('settings-system-prompt');
+    if (el) el.value = systemPromptText;
+  } catch (e) {
+    console.warn('Failed to load system prompt:', e);
+  }
+}
+
+let _spSaveTimer = null;
+function onSystemPromptInput() {
+  systemPromptText = document.getElementById('settings-system-prompt').value;
+  clearTimeout(_spSaveTimer);
+  _spSaveTimer = setTimeout(saveSystemPrompt, 600);
+}
+
+async function saveSystemPrompt() {
+  try {
+    await fetch('/tools/system-prompt', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: systemPromptText }),
+    });
+  } catch (e) {
+    console.warn('Failed to save system prompt:', e);
+  }
+}
+
+// ── Model Presets (localStorage) ──
+
+let modelPresets = [];
+let editingPresetId = null;
+let selectedPresetId = null;
+
+function loadPresets() {
+  try { modelPresets = JSON.parse(localStorage.getItem('model_presets') || '[]'); } catch { modelPresets = []; }
+}
+
+function savePresets() {
+  localStorage.setItem('model_presets', JSON.stringify(modelPresets));
+}
+
+// ── Settings Modal ──
+
+async function openSettingsModal() {
+  loadPresets();
+  cancelEditPreset();
+  renderModelCards();
+  document.getElementById('settings-modal').classList.add('open');
+  // Always fetch latest from server when opening
+  await loadSystemPrompt();
+  const spEl = document.getElementById('settings-system-prompt');
+  spEl.value = systemPromptText;
+  spEl.oninput = onSystemPromptInput;
+}
+
+function closeSettingsModal() {
+  document.getElementById('settings-modal').classList.remove('open');
+}
+
+function renderModelCards() {
+  const container = document.getElementById('model-cards');
+  if (!modelPresets.length) {
+    container.innerHTML = '<div class="no-models-msg">No models configured yet. Click + Add Model below.</div>';
+    return;
+  }
+  container.innerHTML = modelPresets.map(p => `
+    <div class="model-card${editingPresetId === p.id ? ' editing' : ''}" onclick="editModelPreset('${p.id}')">
+      <div class="model-card-info">
+        <div class="model-card-name">${esc(p.name)}</div>
+        <div class="model-card-detail">${esc(p.model)} &middot; ${esc(p.base_url.replace(/https?:\/\//, '').slice(0, 40))}</div>
+      </div>
+      <div class="model-card-actions">
+        <button class="model-card-btn" onclick="event.stopPropagation();deleteModelPreset('${p.id}')" title="Delete">${svgIcon.trash}</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function editModelPreset(id) {
+  const form = document.getElementById('model-edit-form');
+  form.style.display = '';
+
+  if (id) {
+    const p = modelPresets.find(m => m.id === id);
+    if (!p) return;
+    editingPresetId = id;
+    document.getElementById('mp-name').value = p.name;
+    document.getElementById('mp-api-key').value = p.api_key;
+    document.getElementById('mp-base-url').value = p.base_url;
+    document.getElementById('mp-model').value = p.model;
+  } else {
+    editingPresetId = null;
+    document.getElementById('mp-name').value = '';
+    document.getElementById('mp-api-key').value = '';
+    document.getElementById('mp-base-url').value = 'https://generativelanguage.googleapis.com/v1beta/openai/';
+    document.getElementById('mp-model').value = '';
+  }
+  renderModelCards();
+  document.getElementById('mp-name').focus();
+}
+
+function cancelEditPreset() {
+  editingPresetId = null;
+  document.getElementById('model-edit-form').style.display = 'none';
+  renderModelCards();
+}
+
+function saveModelPreset() {
+  const name = document.getElementById('mp-name').value.trim();
+  const apiKey = document.getElementById('mp-api-key').value.trim();
+  const baseUrl = document.getElementById('mp-base-url').value.trim();
+  const model = document.getElementById('mp-model').value.trim();
+
+  if (!name) { alert('Display name is required'); return; }
+  if (!apiKey) { alert('API key is required'); return; }
+  if (!model) { alert('Model ID is required'); return; }
+
+  if (editingPresetId) {
+    const p = modelPresets.find(m => m.id === editingPresetId);
+    if (p) { Object.assign(p, { name, api_key: apiKey, base_url: baseUrl, model }); }
+  } else {
+    modelPresets.push({ id: Date.now().toString(36), name, api_key: apiKey, base_url: baseUrl, model });
+  }
+  savePresets();
+  cancelEditPreset();
+}
+
+function deleteModelPreset(id) {
+  if (!confirm('Delete this model?')) return;
+  modelPresets = modelPresets.filter(m => m.id !== id);
+  savePresets();
+  if (editingPresetId === id) cancelEditPreset();
+  renderModelCards();
+}
+
+// ── Generate Modal ──
+
+function openGenerateModal() {
+  loadPresets();
+  if (!modelPresets.length) {
+    alert('No models configured. Go to Settings first to add a model.');
+    openSettingsModal();
+    return;
+  }
+  const promptText = document.getElementById('ref-prompt').value.trim();
+  if (!promptText) {
+    alert('Write a prompt first, then click Generate.');
+    return;
+  }
+  selectedPresetId = modelPresets[0]?.id || null;
+  renderGenModelList();
+  document.getElementById('agent-status').className = 'agent-status';
+  document.getElementById('agent-status').style.display = 'none';
+  document.getElementById('generate-modal').classList.add('open');
+}
+
+function closeGenerateModal() {
+  document.getElementById('generate-modal').classList.remove('open');
+}
+
+function renderGenModelList() {
+  const container = document.getElementById('gen-model-list');
+  container.innerHTML = modelPresets.map(p => `
+    <div class="model-select-item${selectedPresetId === p.id ? ' selected' : ''}" onclick="selectedPresetId='${p.id}';renderGenModelList()">
+      <div class="msi-radio"></div>
+      <div>
+        <div class="msi-name">${esc(p.name)}</div>
+        <div class="msi-detail">${esc(p.model)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+let agentGenerating = false;
+
+async function runAgentGeneration() {
+  const preset = modelPresets.find(m => m.id === selectedPresetId);
+  if (!preset) { showAgentStatus('error', 'Select a model first'); return; }
+
+  const maxTurns = parseInt(document.getElementById('gen-max-turns').value) || 10;
+  const temperature = parseFloat(document.getElementById('gen-temperature').value) || 0.7;
+  const promptText = document.getElementById('ref-prompt').value.trim();
+  if (!promptText) { showAgentStatus('error', 'Write a prompt first'); return; }
+
+  // Close modal immediately so user sees turns generating
+  closeGenerateModal();
+
+  // Create tab immediately
+  syncTurnFields();
+  const tab = addTab(preset.name, 'agent', { base_url: preset.base_url, model_name: preset.model });
+  agentGenerating = true;
+  renderTrajectory();
+
+  let turnCount = 0;
+
+  try {
+    const resp = await fetch('/tools/agent/generate/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: promptText,
+        api_key: preset.api_key,
+        base_url: preset.base_url,
+        model: preset.model,
+        max_turns: maxTurns,
+        temperature,
+        system_prompt: systemPromptText,
+      }),
+    });
+
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      throw new Error(errData.detail || `HTTP ${resp.status}`);
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        let event;
+        try { event = JSON.parse(line.slice(6)); } catch { continue; }
+
+        console.log('[SSE]', event.type, event.type === 'turn' ? `turn=${event.turn?.turn} tc=${event.turn?.tool_calls?.length} msg=${(event.turn?.message||'').slice(0,60)}` : '');
+        if (event.type === 'turn') {
+          trajectory.push(event.turn);
+          turnCount++;
+          renderTrajectory();
+          const scroll = document.querySelector('.traj-scroll');
+          if (scroll) scroll.scrollTop = scroll.scrollHeight;
+        } else if (event.type === 'done') {
+          if (trajectory.length > 0) {
+            trajectory[trajectory.length - 1].golden = true;
+          }
+          agentGenerating = false;
+          renderTrajectory();
+        } else if (event.type === 'error') {
+          agentGenerating = false;
+          renderTrajectory();
+          alert('Generation error: ' + event.error);
+        }
+      }
+    }
+    // Safety: ensure generating stops when stream ends
+    if (agentGenerating) {
+      agentGenerating = false;
+      if (trajectory.length > 0) {
+        trajectory[trajectory.length - 1].golden = true;
+      }
+      renderTrajectory();
+    }
+  } catch (err) {
+    agentGenerating = false;
+    if (turnCount === 0 && tab) {
+      const idx = tabs.findIndex(t => t.id === tab.id);
+      if (idx !== -1) {
+        tabs.splice(idx, 1);
+        if (tabs.length > 0) {
+          activeTabId = tabs[Math.max(0, idx - 1)].id;
+          trajectory = getActiveTab().turns;
+        }
+        renderTabs();
+      }
+    }
+    renderTrajectory();
+    alert('Generation failed: ' + err.message);
+  }
+}
+
+function showAgentStatus(type, msg) {
+  const el = document.getElementById('agent-status');
+  if (!type || !msg) { el.style.display = 'none'; return; }
+  el.className = `agent-status ${type}`;
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// ── Init ──
+
+loadTools();
+loadPresets();
+loadSystemPrompt();
+renderTabs();
+</script>
+</body>
+</html>

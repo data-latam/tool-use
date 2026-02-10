@@ -1,0 +1,65 @@
+{
+  "prompt": "What is the population of Tokyo and what are some famous landmarks there?",
+  "trajectories": [
+    {
+      "name": "Human",
+      "source": "human",
+      "turns": [
+        {
+          "turn": 1,
+          "reasoning": "The user wants to know about Tokyo's population and landmarks. I should use `ddg-search.search` to find the population data first.",
+          "message": "Let me look that up for you.",
+          "tool_calls": [
+            {
+              "server": "ddg-search",
+              "tool": "search",
+              "arguments": {
+                "query": "Tokyo population 2025"
+              },
+              "output": {
+                "success": true,
+                "result": [
+                  {
+                    "title": "Tokyo Population 2025",
+                    "snippet": "The current population of Tokyo is approximately 13.96 million in the city proper and 37.4 million in the Greater Tokyo Area.",
+                    "url": "https://example.com/tokyo-population"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "turn": 2,
+          "reasoning": "I found the population data from `ddg-search.search`. Now I need to call `ddg-search.search` again for famous landmarks in Tokyo.",
+          "message": "",
+          "tool_calls": [
+            {
+              "server": "ddg-search",
+              "tool": "search",
+              "arguments": {
+                "query": "famous landmarks in Tokyo"
+              },
+              "output": {
+                "success": true,
+                "result": [
+                  {
+                    "title": "Top Landmarks in Tokyo",
+                    "snippet": "Famous landmarks include Tokyo Tower, Senso-ji Temple, Meiji Shrine, Shibuya Crossing, and the Imperial Palace.",
+                    "url": "https://example.com/tokyo-landmarks"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "turn": 3,
+          "reasoning": "I now have all the information needed from the two `ddg-search.search` calls to answer the user's question comprehensively.",
+          "message": "Tokyo has a population of approximately 13.96 million in the city proper and 37.4 million in the Greater Tokyo Area. Some famous landmarks include:\n\n- Tokyo Tower\n- Senso-ji Temple\n- Meiji Shrine\n- Shibuya Crossing\n- The Imperial Palace",
+          "tool_calls": []
+        }
+      ]
+    }
+  ]
+}
