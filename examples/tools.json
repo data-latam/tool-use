@@ -1,0 +1,33 @@
+{
+  "tool_set": [
+    "wikipedia.get_summary",
+    "google-maps.maps_geocode",
+    "google-maps.maps_search_places",
+    "google-maps.maps_directions",
+    "google-maps.maps_elevation",
+    "lara-translate.translate"
+  ],
+  "distractors": [
+    "osm-mcp-server.geocode_address",
+    "osm-mcp-server.find_nearby_places",
+    "osm-mcp-server.get_route_directions",
+    "ddg-search.search",
+    "ddg-search.fetch_content",
+    "arxiv.search_papers",
+    "calculator.calculate",
+    "alchemy.fetchTokenPriceHistoryBySymbol",
+    "notion.post-search",
+    "wikipedia.get_article",
+    "airtable.list_records"
+  ],
+  "metadata": {
+    "task_id": "QH-COLOSSEUM-001",
+    "task_type": "stacked_prompt",
+    "domain": "travel",
+    "difficulty": "medium",
+    "min_tool_calls": 8,
+    "time_invariant": true,
+    "language": "en",
+    "notes": "Multi-step travel planning task requiring Wikipedia for history, Google Maps for geocoding/places/directions/elevation, and translation. Time-invariant because historical facts and geographic data don't change."
+  }
+}
